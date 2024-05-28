@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import requests, json, os, sys, pickle
+import requests, json, os, sys, pickle, base64
 from getpass import getpass
 from pathlib import Path
 from datetime import date
@@ -27,6 +27,8 @@ def get_arguments(*args):
         parser.add_option(arg[0], arg[1], dest=arg[2], help=arg[3])
     return parser.parse_args()[0]
 
+cwd = Path.cwd()
+default_branch = "main"
 githubREPO_API = "https://api.github.com/user/repos"
 
 def createRepository(auth_token, name, private):
@@ -49,12 +51,13 @@ def deleteRepository(auth_token, user, repository):
     if response.status_code == 204:
         return True
     return response
-def cloneRepository(auth_token, user, repository):
-    status = os.system(f"git clone https://{auth_token}@github.com/{user}/{repository}.git .repositories/{repository}")
+def cloneRepository(auth_token, user, repository, folder=None):
+    if folder == None:
+        folder = f".repositories/{repository}"
+    status = os.system(f"git clone https://{auth_token}@github.com/{user}/{repository}.git {folder}")
     return status
 
 def makeFolders():
-    cwd = Path.cwd()
     temporary_repository_folder = cwd / ".repositories"
     temporary_repository_folder.mkdir(exist_ok=True)
     user_config_folder = cwd / "configs"
@@ -62,10 +65,14 @@ def makeFolders():
 
 if __name__ == "__main__":
     makeFolders()
-    arguments = get_arguments(('-u', "--user", "user", "Github Username"))
+    arguments = get_arguments(('-u', "--user", "user", "Github Username"),
+                              ('-b', "--branch", "branch", f"Branch of Github Repositories (Default={default_branch})"))
     if not arguments.user:
         display('-', f"Please Provide a Username")
         exit(0)
+    if not arguments.branch:
+        display(':', f"Branch Set to {Back.MAGENTA}{default_branch}{Back.RESET}")
+        arguments.branch = default_branch
     try:
         with open("authentication_tokens.pickle", 'rb') as file:
             authentication_tokens = pickle.load(file)
@@ -75,22 +82,62 @@ if __name__ == "__main__":
         display('-', f"Error while Reading Authentication Tokens")
         exit(0)
     if arguments.user not in authentication_tokens.keys():
+        github_password = getpass(f"Enter your Github Account Password for User {arguments.user} : ")
         auth_token = input(f"Enter Github API Authentication Token for {arguments.user} : ")
         auth_storing_status = input(f"Do you want to Store the Token (Yes/No) : ")
         if auth_storing_status == "Yes":
             auth_token_password = getpass(f"Enter the Password to Securely Store the Token : ")
             key, salt = generate_key(auth_token_password)
             encrypted_auth_token = encrypt(auth_token.encode(), key, salt)
-            authentication_tokens[arguments.user] = {"token": encrypted_auth_token, "salt": salt}
+            encrypted_github_password = encrypt(github_password.encode(), key, salt)
+            authentication_tokens[arguments.user] = {"token": encrypted_auth_token, "github_password": encrypted_github_password, "salt": salt}
             with open("authentication_tokens.pickle", 'wb') as file:
                 pickle.dump(authentication_tokens, file)
     else:
         encrypted_auth_token = authentication_tokens[arguments.user]["token"]
+        encrypted_github_password = authentication_tokens[arguments.user]["github_password"]
         salt = authentication_tokens[arguments.user]["salt"]
         auth_token_password =  getpass(f"Enter the Password for Accessing Token : ")
         try:
             key, _ = generate_key(auth_token_password, salt)
             auth_token = decrypt(encrypted_auth_token, key, salt).decode()
+            github_password = decrypt(encrypted_github_password, key, salt).decode()
         except Exception as err:
             display('-', f"Wrong Password!")
             exit(0)
+    users_present = os.listdir("configs")
+    if arguments.user not in users_present:
+        config_repository_status = cloneRepository(auth_token, arguments.user, "storage_config", f"configs/{arguments.user}")
+        if config_repository_status != 0:
+            createRepository(auth_token, "storage_config", False)
+            cloneRepository(auth_token, arguments.user, "storage_config", f"configs/{arguments.user}")
+    config_files = os.listdir(f"configs/{arguments.user}")
+    config_files.remove(".git")
+    config_files.sort()
+    if config_files != ["private_config", "public_config"]:
+        for file in config_files:
+            os.system(f"rm configs/{arguments.user}/{file}")
+        public_config = {}
+        private_config = {}
+        key, config_salt = generate_key(github_password)
+        public_config["salt"] = config_salt
+        with open(f"configs/{arguments.user}/public_config", 'wb') as file:
+            pickle.dump(public_config, file)
+        with open(f"configs/{arguments.user}/private_config", 'wb') as file:
+            content = encrypt(pickle.dumps(private_config), key, salt)
+            file.write(content)
+        os.chdir(f"configs/{arguments.user}")
+        os.system("git add .")
+        os.system(f"git commit -m 'Added Configuration Files'")
+        os.system(f"git push origin {arguments.branch}")
+        os.chdir(str(cwd))
+    else:
+        os.chdir(f"configs/{arguments.user}")
+        os.system(f"git pull")
+        with open(f"public_config", 'rb') as file:
+            public_config = pickle.load(file)
+        config_salt = public_config["salt"]
+        key, _ = generate_key(github_password, config_salt)
+        with open(f"private_config", 'rb') as file:
+            content = file.read()
+            private_config = pickle.loads(decrypt(content, key, config_salt))
