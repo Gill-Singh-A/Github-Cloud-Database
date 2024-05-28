@@ -7,8 +7,9 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 
-def generate_key(password):
-    salt = os.urandom(16)
+def generate_key(password, salt=None):
+    if salt == None:
+        salt = os.urandom(16)
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
