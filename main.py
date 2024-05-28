@@ -82,26 +82,54 @@ if __name__ == "__main__":
         display('-', f"Error while Reading Authentication Tokens")
         exit(0)
     if arguments.user not in authentication_tokens.keys():
-        github_password = getpass(f"Enter your Github Account Password for User {arguments.user} : ")
         auth_token = input(f"Enter Github API Authentication Token for {arguments.user} : ")
-        auth_storing_status = input(f"Do you want to Store the Token (Yes/No) : ")
-        if auth_storing_status == "Yes":
+        github_password = getpass(f"Enter your Github Account Password for User {arguments.user} : ")
+        public_before_zip = getpass(f"Enter AES-Encryption Password before File Zipping for Public Files : ")
+        public_zip = getpass(f"Enter Password for Public ZIP Files : ")
+        public_after_zip = getpass(f"Enter AES-Encryption Password afer File Zipping for Public Files : ")
+        private_before_zip = getpass(f"Enter AES-Encryption Password before File Zipping for private Files : ")
+        private_zip = getpass(f"Enter Password for private ZIP Files : ")
+        private_after_zip = getpass(f"Enter AES-Encryption Password afer File Zipping for private Files : ")
+        auth_storing_status = input(f"Do you want to Store the Token (Y/n) : ")
+        if 'y' in auth_storing_status.lower():
             auth_token_password = getpass(f"Enter the Password to Securely Store the Token : ")
             key, salt = generate_key(auth_token_password)
             encrypted_auth_token = encrypt(auth_token.encode(), key, salt)
             encrypted_github_password = encrypt(github_password.encode(), key, salt)
-            authentication_tokens[arguments.user] = {"token": encrypted_auth_token, "github_password": encrypted_github_password, "salt": salt}
+            encrypted_private_before_zip = encrypt(private_before_zip.encode(), key, salt)
+            encrypted_private_zip = encrypt(private_zip.encode(), key, salt)
+            encrypted_private_after_zip = encrypt(private_after_zip.encode(), key, salt)
+            authentication_tokens[arguments.user] = {
+                "token": encrypted_auth_token,
+                "github_password": encrypted_github_password,
+                "public_before_zip": public_before_zip,
+                "public_zip": public_zip,
+                "public_after_zip": public_after_zip,
+                "private_before_zip": encrypted_private_before_zip,
+                "private_zip": encrypted_private_zip,
+                "private_after_zip": encrypted_private_after_zip,
+                "salt": salt
+            }
             with open("authentication_tokens.pickle", 'wb') as file:
                 pickle.dump(authentication_tokens, file)
     else:
         encrypted_auth_token = authentication_tokens[arguments.user]["token"]
         encrypted_github_password = authentication_tokens[arguments.user]["github_password"]
+        public_before_zip = authentication_tokens[arguments.user]["public_before_zip"]
+        public_zip = authentication_tokens[arguments.user]["public_zip"]
+        public_after_zip = authentication_tokens[arguments.user]["public_after_zip"]
+        encrypted_private_before_zip = authentication_tokens[arguments.user]["private_before_zip"]
+        encrypted_private_zip = authentication_tokens[arguments.user]["private_zip"]
+        encrypted_private_after_zip = authentication_tokens[arguments.user]["private_after_zip"]
         salt = authentication_tokens[arguments.user]["salt"]
         auth_token_password =  getpass(f"Enter the Password for Accessing Token : ")
         try:
             key, _ = generate_key(auth_token_password, salt)
             auth_token = decrypt(encrypted_auth_token, key, salt).decode()
             github_password = decrypt(encrypted_github_password, key, salt).decode()
+            private_before_zip = decrypt(encrypted_private_before_zip, key, salt).decode()
+            private_zip = decrypt(encrypted_private_zip, key, salt).decode()
+            private_after_zip = decrypt(encrypted_private_after_zip, key, salt).decode()
         except Exception as err:
             display('-', f"Wrong Password!")
             exit(0)
@@ -117,8 +145,16 @@ if __name__ == "__main__":
     if config_files != ["private_config", "public_config"]:
         for file in config_files:
             os.system(f"rm configs/{arguments.user}/{file}")
-        public_config = {}
-        private_config = {}
+        public_config = {
+            "public_before_zip": public_before_zip,
+            "public_zip": public_zip,
+            "public_after_zip": public_after_zip,
+        }
+        private_config = {
+            "private_before_zip": encrypted_private_before_zip,
+            "private_zip": encrypted_private_zip,
+            "private_after_zip": encrypted_private_after_zip,
+        }
         key, config_salt = generate_key(github_password)
         public_config["salt"] = config_salt
         with open(f"configs/{arguments.user}/public_config", 'wb') as file:
@@ -141,3 +177,4 @@ if __name__ == "__main__":
         with open(f"private_config", 'rb') as file:
             content = file.read()
             private_config = pickle.loads(decrypt(content, key, config_salt))
+    print(public_config, private_config)
