@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 import requests, json, os, sys
+from pathlib import Path
 
 githubREPO_API = "https://api.github.com/user/repos"
 
@@ -25,9 +26,13 @@ def deleteRepository(auth_token, user, repository):
         return True
     return response
 def cloneRepository(auth_token, user, repository):
-    status = os.system(f"git clone https://{auth_token}@github.com/{user}/{repository}.git")
+    status = os.system(f"git clone https://{auth_token}@github.com/{user}/{repository}.git .repositories/")
     return status
 
+def makeFolders():
+    cwd = Path.cwd()
+    temporary_repository_folder = cwd / ".repositories"
+    temporary_repository_folder.mkdir(exist_ok=True)
 
 if __name__ == "__main__":
     pass
