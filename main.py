@@ -221,10 +221,3 @@ if __name__ == "__main__":
         with open(f"private_config", 'rb') as file:
             content = file.read()
             private_config = pickle.loads(decrypt(content, key, config_salt))
-        salt = private_config = private_config["salt"]
-        encrypted_private_before_zip = private_config["private_before_zip"]
-        encrypted_private_zip = private_config["private_zip"]
-        encrypted_private_after_zip = private_config["private_after_zip"]
-        private_before_zip = decrypt(encrypted_private_before_zip, key, salt).decode()
-        private_zip = decrypt(encrypted_private_zip, key, salt).decode()
-        private_after_zip = decrypt(encrypted_private_after_zip, key, salt).decode()
