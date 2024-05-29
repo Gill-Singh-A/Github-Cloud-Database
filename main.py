@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import requests, json, os, sys, pickle, base64
+import requests, json, os, sys, pickle, base64, string, random
 from getpass import getpass
 from pathlib import Path
 from datetime import date
@@ -57,6 +57,10 @@ def cloneRepository(auth_token, user, repository, folder=None):
     status = os.system(f"git clone https://{auth_token}@github.com/{user}/{repository}.git {folder}")
     return status
 
+def generateRandom(length):
+    letters = string.ascii_letters + "0123456789"
+    return ''.join([random.choice(letters) for _ in range(length)])
+
 def makeFolders():
     temporary_repository_folder = cwd / ".repositories"
     temporary_repository_folder.mkdir(exist_ok=True)
@@ -87,12 +91,24 @@ if __name__ == "__main__":
         config_repository_status = cloneRepository(auth_token, arguments.user, "storage_config", f"configs/{arguments.user}")
         salt = None
         if config_repository_status != 0:
-            public_before_zip = getpass(f"Enter AES-Encryption Password before File Zipping for Public Files : ")
-            public_zip = getpass(f"Enter Password for Public ZIP Files : ")
-            public_after_zip = getpass(f"Enter AES-Encryption Password afer File Zipping for Public Files : ")
-            private_before_zip = getpass(f"Enter AES-Encryption Password before File Zipping for private Files : ")
-            private_zip = getpass(f"Enter Password for private ZIP Files : ")
-            private_after_zip = getpass(f"Enter AES-Encryption Password afer File Zipping for private Files : ")
+            public_before_zip = getpass(f"Enter AES-Encryption Password before File Zipping for Public Files (Enter Empty for Autogeneration) : ")
+            if public_before_zip == '':
+                public_before_zip = generateRandom(50)
+            public_zip = getpass(f"Enter Password for Public ZIP Files (Enter Empty for Autogeneration) : ")
+            if public_zip == '':
+                public_zip = generateRandom(50)
+            public_after_zip = getpass(f"Enter AES-Encryption Password afer File Zipping for Public Files (Enter Empty for Autogeneration) : ")
+            if public_after_zip == '':
+                public_after_zip = generateRandom(50)
+            private_before_zip = getpass(f"Enter AES-Encryption Password before File Zipping for private Files (Enter Empty for Autogeneration) : ")
+            if private_before_zip == '':
+                private_before_zip = generateRandom(50)
+            private_zip = getpass(f"Enter Password for private ZIP Files (Enter Empty for Autogeneration) : ")
+            if private_zip == '':
+                private_zip = generateRandom(50)
+            private_after_zip = getpass(f"Enter AES-Encryption Password afer File Zipping for private Files (Enter Empty for Autogeneration) : ")
+            if private_after_zip == '':
+                private_after_zip = generateRandom(50)
         else:
             with open(f"configs/{arguments.user}/public_config", 'rb') as file:
                 public_config = pickle.load(file.read())
