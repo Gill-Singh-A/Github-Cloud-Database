@@ -111,22 +111,19 @@ if __name__ == "__main__":
                 private_after_zip = generateRandom(50)
         else:
             with open(f"configs/{arguments.user}/public_config", 'rb') as file:
-                public_config = pickle.load(file.read())
-                public_before_zip = public_config["public_before_zip"]
-                public_zip = public_config["public_zip"]
-                public_after_zip = public_config["public_after_zip"]
-                config_salt = public_config["salt"]
-            with open(f"configs/{arguments.user}/public_config", 'rb') as file:
+                public_config = pickle.load(file)
+            public_before_zip = public_config["public_before_zip"]
+            public_zip = public_config["public_zip"]
+            public_after_zip = public_config["public_after_zip"]
+            config_salt = public_config["salt"]
+            key, _ = generate_key(github_password, config_salt)
+            with open(f"configs/{arguments.user}/private_config", 'rb') as file:
                 content = file.read()
-                key, _ = generate_key(github_password)
-                private_config = decrypt(content, key, config_salt)
-                encrypted_private_before_zip = private_config["private_before_zip"]
-                encrypted_private_zip = private_config["private_zip"]
-                encrypted_private_after_zip = private_config["private_after_zip"]
+                private_config = pickle.loads(decrypt(content, key, config_salt))
+                private_before_zip = private_config["private_before_zip"]
+                private_zip = private_config["private_zip"]
+                private_after_zip = private_config["private_after_zip"]
                 salt = private_config["salt"]
-            private_before_zip = decrypt(encrypted_private_before_zip, key, salt).decode()
-            private_zip = decrypt(encrypted_private_zip, key, salt).decode()
-            private_after_zip = decrypt(encrypted_private_after_zip, key, salt).decode()
         auth_storing_status = input(f"Do you want to Store the Token (Y/n) : ")
         if 'y' in auth_storing_status.lower():
             auth_token_password = getpass(f"Enter the Password to Securely Store the Token : ")
@@ -191,9 +188,9 @@ if __name__ == "__main__":
             "public_after_zip": public_after_zip,
         }
         private_config = {
-            "private_before_zip": encrypted_private_before_zip,
-            "private_zip": encrypted_private_zip,
-            "private_after_zip": encrypted_private_after_zip,
+            "private_before_zip": private_before_zip,
+            "private_zip": private_zip,
+            "private_after_zip": private_after_zip,
         }
         key, config_salt = generate_key(github_password)
         public_config["salt"] = config_salt
@@ -201,7 +198,7 @@ if __name__ == "__main__":
         with open(f"configs/{arguments.user}/public_config", 'wb') as file:
             pickle.dump(public_config, file)
         with open(f"configs/{arguments.user}/private_config", 'wb') as file:
-            content = encrypt(pickle.dumps(private_config), key, salt)
+            content = encrypt(pickle.dumps(private_config), key, config_salt)
             file.write(content)
         os.chdir(f"configs/{arguments.user}")
         os.system("git add .")
