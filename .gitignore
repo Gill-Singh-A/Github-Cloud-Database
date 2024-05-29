@@ -1,3 +1,4 @@
+.tmp
 .repositories
 configs
 authentication_tokens.pickle
