@@ -157,7 +157,7 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
         total_files = len(files)
         display('+', f"Total Segments = {Back.MAGENTA}{total_files}{Back.RESET}")
         display('+', f"Encrypting All the Segments using {thread_count} Threads...")
-        key, salt_after = generate_key(key_before)
+        key, salt_after = generate_key(key_after)
         pool = Pool(thread_count)
         file_divisions = [files[group*total_files//thread_count: (group+1)*total_files//thread_count] for group in range(thread_count)]
         threads = []
