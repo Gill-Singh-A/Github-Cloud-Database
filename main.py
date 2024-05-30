@@ -32,7 +32,8 @@ def get_arguments(*args):
 cwd = Path.cwd()
 default_branch = "main"
 githubREPO_API = "https://api.github.com/user/repos"
-individual_segment_size = 50 * 1000 * 1000
+mbs = 51
+individual_segment_size = mbs * 1000 * 1000
 segements_per_repository = 39
 github_repo_size = individual_segment_size * segements_per_repository
 thread_count = cpu_count()
@@ -120,8 +121,8 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     os.chdir(".tmp")
     if key_before != False:
         display(':', f"Encrypting before Compressing")
-        display('+', f"Spliting the File into Files of 50MB each...")
-        os.system(f"split -b 50M '{file_path}'")
+        display('+', f"Spliting the File into Files of {mbs}MB each...")
+        os.system(f"split -b {mbs}M '{file_path}'")
         files = os.listdir()
         files.sort()
         total_files = len(files)
@@ -147,8 +148,8 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     zipFile(file_name, zip_key)
     display('+', f"Removing the Previous File")
     os.system(f"rm '{file_name}'")
-    display('+', f"Spliting the File into Files of 50MB each...")
-    os.system(f"split -b 50M '{file_name}.zip'")
+    display('+', f"Spliting the File into Files of {mbs}MB each...")
+    os.system(f"split -b {mbs}M '{file_name}.zip'")
     os.system(f"rm '{file_name}.zip'")
     if key_after != False:
         display(':', f"Encrypting After Compressing")
@@ -244,8 +245,8 @@ def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_
     unzipFile(file, zip_key)
     os.system(f"rm '{file}.zip'")
     if key_before:
-        display('+', f"Spliting the File into Files of 50MB each...")
-        os.system(f"split -b 50M '{file}'")
+        display('+', f"Spliting the File into Files of {mbs}MB each...")
+        os.system(f"split -b {mbs}M '{file}'")
         os.system(f"rm '{file}'")
         files = os.listdir()
         files.sort()
