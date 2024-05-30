@@ -8,7 +8,7 @@ from datetime import date
 from optparse import OptionParser
 from colorama import Fore, Back, Style
 from multiprocessing import cpu_count, Pool, Lock
-from time import strftime, localtime, sleep, time
+from time import strftime, localtime
 
 from aes_256 import encrypt, decrypt, generate_key
 
