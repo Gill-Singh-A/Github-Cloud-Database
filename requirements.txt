@@ -1,0 +1,4 @@
+requests
+cryptography
+colorama
+datetime
