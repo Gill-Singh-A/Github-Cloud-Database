@@ -141,6 +141,8 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
         os.system(f"cat {' '.join(files)} > '{file_name}'")
         display('+', f"Removing Segments...")
         os.system(f"rm {' '.join(files)}")
+    else:
+        salt_before = ''
     display(':', f"Compressing the File...")
     zipFile(file_name, zip_key)
     display('+', f"Removing the Previous File")
@@ -165,6 +167,8 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
             thread.get()
         pool.close()
         pool.join()
+    else:
+        salt_after = ''
     display(':', f"Uploading Segments to Github")
     files = os.listdir()
     files.sort()
@@ -200,7 +204,7 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
 def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_before, salt_after):
     total_repositories = len(repositories)
     display('+', f"Cloning {total_repositories} Repositories with {thread_count} Threads")
-    repository_divisions = [repositories[group*total_repositories//thread_count: (group+1)(total_repositories)//thread_count] for group in range(thread_count)]
+    repository_divisions = [repositories[group*total_repositories//thread_count: (group+1)*(total_repositories)//thread_count] for group in range(thread_count)]
     pool = Pool(thread_count)
     threads = []
     for repository_division in repository_divisions:
@@ -480,8 +484,11 @@ if __name__ == "__main__":
             os.system("git add .")
             os.system(f"git commit -m 'Added {'Private' if private else 'Public'} File '")
             os.system(f"git push origin {arguments.branch}")
+    elif arguments.upload:
+        display('-', f"File {Back.YELLOW}{arguments.upload}{Back.RESET} not found!")
+        exit(0)
     if arguments.download:
-        if arguments.download in public_config["files"].keys():
+        if "files" in public_config.keys() and arguments.download in public_config["files"].keys():
             private = False
             repositories = public_config["files"][arguments.download]["repositories"]
             key_before = public_config["files"][arguments.download]["before_zip"]
@@ -489,7 +496,7 @@ if __name__ == "__main__":
             key_after = public_config["files"][arguments.download]["after_zip"]
             salt_before = public_config["files"][arguments.download]["salt_before"]
             salt_after = public_config["files"][arguments.download]["salt_after"]
-        elif arguments.download in private_config["files"].keys():
+        elif "files" in private_config.keys() and arguments.download in private_config["files"].keys():
             private = True
             repositories = private_config["files"][arguments.download]["repositories"]
             key_before = private_config["files"][arguments.download]["before_zip"]
