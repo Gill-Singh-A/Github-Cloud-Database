@@ -537,7 +537,7 @@ if __name__ == "__main__":
             key_after = private_config["files"][arguments.download]["after_zip"]
             salt_before = private_config["files"][arguments.download]["salt_before"]
             salt_after = private_config["files"][arguments.download]["salt_after"]
-            file_size = public_config["files"][arguments.download]["file_size"]
+            file_size = private_config["files"][arguments.download]["file_size"]
         else:
             display('-', f"No File Named {Back.YELLOW}{arguments.download}{Back.RESET} Found")
             exit(0)
