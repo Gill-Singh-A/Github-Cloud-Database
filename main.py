@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import requests, json, os, sys, pickle, base64, string, random, shutil, zipfile
+import requests, json, os, pickle, base64, string, random, shutil, zipfile
 from math import ceil, sqrt
 from getpass import getpass
 from pathlib import Path
