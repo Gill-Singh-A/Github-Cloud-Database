@@ -32,7 +32,7 @@ pip install -r requirements.txt
 <!-- --><br />
 ![Repository Access](/assets/images/all_repositories.png)<br />
 ![Administration Permissions](/assets/images/administrator_read_write.png)<br />
-![Content Permissions](/assets/images/administrator_read_write.png)<br />
+![Content Permissions](/assets/images/content_read_write.png.png)<br />
 ## Encryption Passwords
 * It uses AES-256 Symmetric Encryption Algorithm for Encrypting the files.
 * There are 4 Passwords for this encryption that it takes:
