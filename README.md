@@ -64,3 +64,5 @@ pip install -r requirements.txt
 ### Note
 * This Only works for Linux based Operating Systems (as it uses Linux System Commands)
 * Only use a dummy Github Account for this, else everything will get messed up
+* The Downloaded Files will be saved to ***downloads*** folder.
+* Before running ***main.py*** make sure that ***.tmp*** and ***.repository*** folders are empty. You can empty them by running ***clean.sh***
