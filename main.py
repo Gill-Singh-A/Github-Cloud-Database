@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import requests, json, os, pickle, base64, string, random, shutil, zipfile
+import requests, json, os, pickle, base64, string, random, shutil
 from math import ceil, sqrt
 from getpass import getpass
 from pathlib import Path
@@ -95,15 +95,15 @@ def decryptFiles(key, salt, files):
         with open(small_file, 'wb') as file:
             file.write(content)
 def zipFile(file, password=None):
-    with zipfile.ZipFile(f"{file}.zip", 'w') as ZipFile:
-        ZipFile.write(file)
-        if password != None:
-            ZipFile.setpassword(password.encode())
+    if password:
+        os.system(f"zip -P {password} '{file}.zip' '{file}'")
+    else:
+        os.system(f"zip '{file}.zip' '{file}'")
 def unzipFile(file, password=None):
-    with zipfile.ZipFile(f"{file}.zip", 'r') as ZipFile:
-        if password:
-            ZipFile.setpassword(password.encode())
-        ZipFile.extractall(".")
+    if password:
+        os.system(f"unzip -P {password} '{file}.zip' '{file}'")
+    else:
+        os.system(f"unzip '{file}.zip' '{file}'")
 def uploadToRepositories(repositores):
     for repository_name in repositores:
         os.chdir(f"../.repositories/{repository_name.replace(' ', '-')}")
