@@ -292,7 +292,8 @@ if __name__ == "__main__":
                               ('-e', "--encryption", "encryption", "Encrypt File (None/Before/After/Both, Default=None)"),
                               ('-p', "--private", "private", "Private File (True/False, Default=True)"),
                               ('-z', "--zip-password", "zip_password", "Password for Compressed File (True/False, Default=False)"),
-                              ('-d', "--download", "download", "Download a File"))
+                              ('-d', "--download", "download", "Download a File"),
+                              ('-v', "--view", "view", "View Uploaded Files"))
     if not arguments.user:
         display('-', f"Please Provide a Username")
         exit(0)
@@ -442,6 +443,15 @@ if __name__ == "__main__":
             content = file.read()
             private_config = pickle.loads(decrypt(content, key, config_salt))
     os.chdir(str(cwd))
+    if arguments.view:
+        if "files" in public_config.keys():
+            print(f"{Fore.GREEN}Public Files{Fore.RESET}")
+            print('\n'.join([f"* {Fore.CYAN}{file}{Fore.RESET}" for file in public_config["files"]]))
+            print()
+        if "files" in private_config.keys():
+            print(f"{Fore.GREEN}Public Files{Fore.RESET}")
+            print('\n'.join([f"* {Fore.CYAN}{file}{Fore.RESET}" for file in private_config["files"]]))
+            print()
     if arguments.upload and os.path.exists(arguments.upload):
         if os.path.isdir(arguments.upload):
             display('-', f"Directories not Supported Currently!")
