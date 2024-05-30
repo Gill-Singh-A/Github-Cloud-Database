@@ -72,7 +72,10 @@ def cloneRepository(auth_token, user, repository, folder=None, verbose=True):
     return status
 def cloneRepositories(auth_token, user, repositories):
     for repository in repositories:
-        cloneRepository(auth_token, user, repository, f".repositories/{repository}", False)
+        status = cloneRepository(auth_token, user, repository, f".repositories/{repository}", False)
+        if status != 0:
+            return False
+    return True
 def createRepositories(auth_token, user, repositories, private):
     for repository in repositories:
         createRepository(auth_token, repository, private)
@@ -211,7 +214,13 @@ def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_
     for repository_division in repository_divisions:
         threads.append(pool.apply_async(cloneRepositories, (auth_token, user, repository_division, )))
     for thread in threads:
-        thread.get()
+        status = thread.get()
+        if status == False:
+            display('-', f"Failed to Upload Data!")
+            display('*', f"Reverting...")
+            for repository in repositories:
+                deleteRepository(auth_token, user, repository)
+            exit(0)
     pool.close()
     pool.join()
     base_name = repositories[0].split('_')[0]
