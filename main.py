@@ -294,7 +294,8 @@ if __name__ == "__main__":
                               ('-z', "--zip-password", "zip_password", "Password for Compressed File (True/False, Default=False)"),
                               ('-d', "--download", "download", "Download a File"),
                               ('-v', "--view", "view", "View Uploaded Files"),
-                              ('-D', "--delete", "delete", "Delete a File"))
+                              ('-D', "--delete", "delete", "Delete a File"),
+                              ('-t', "--update-token", "update_token", "Update Github API Token (Input = Username for which to update the token)"))
     if not arguments.user:
         display('-', f"Please Provide a Username")
         exit(0)
@@ -310,6 +311,19 @@ if __name__ == "__main__":
         authentication_tokens = {}
     except:
         display('-', f"Error while Reading Authentication Tokens")
+        exit(0)
+    if arguments.update_token and arguments.update_token in authentication_tokens.keys():
+        auth_token = input(f"Enter Updated Github API Authentication Token for {arguments.update_token} : ")
+        auth_token_password =  getpass(f"Enter the Password for Accessing Token : ")
+        salt = authentication_tokens[arguments.user]["salt"]
+        key, _ = generate_key(auth_token_password, salt)
+        encrypted_auth_token = encrypt(auth_token.encode(), key, salt)
+        authentication_tokens[arguments.user]["token"] = encrypted_auth_token
+        with open("authentication_tokens.pickle", 'wb') as file:
+            pickle.dump(authentication_tokens, file)
+        exit(0)
+    elif arguments.update_token:
+        display('-', f"User {Back.YELLOW}{arguments.update_token}{Back.RESET} not found in Cached Configs!")
         exit(0)
     if arguments.user not in authentication_tokens.keys():
         auth_token = input(f"Enter Github API Authentication Token for {arguments.user} : ")
