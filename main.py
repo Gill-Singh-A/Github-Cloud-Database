@@ -200,16 +200,19 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     pool = Pool(int(sqrt(thread_count)))
     repository_divisions = [repositories[group*repository_count//int(sqrt(thread_count)): (group+1)*repository_count//int(sqrt(thread_count))] for group in range(int(sqrt(thread_count)))]
     threads = []
+    failed = False
     for repository_division in repository_divisions:
         threads.append(pool.apply_async(uploadToRepositories, (repository_division, )))
     for thread in threads:
         status = thread.get()
         if status == False:
-            display('-', f"Failed to Upload Data!")
-            display('*', f"Reverting...")
-            for repository in repositories:
-                deleteRepository(auth_token, user, repository)
-            exit(0)
+            failed = True
+    if failed:
+        display('-', f"Failed to Upload Data!")
+        display('*', f"Reverting...")
+        for repository in repositories:
+            deleteRepository(auth_token, user, repository)
+        exit(0)
     pool.close()
     pool.join()
     os.chdir(str(cwd))
@@ -220,10 +223,15 @@ def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_
     repository_divisions = [repositories[group*total_repositories//thread_count: (group+1)*(total_repositories)//thread_count] for group in range(thread_count)]
     pool = Pool(thread_count)
     threads = []
+    failed = False
     for repository_division in repository_divisions:
         threads.append(pool.apply_async(cloneRepositories, (auth_token, user, repository_division, )))
     for thread in threads:
         status = thread.get()
+        if status == False:
+            failed = True
+    if failed:
+        display('-', f"Failed to Download Data!")
     pool.close()
     pool.join()
     base_name = repositories[0].split('_')[0]
@@ -233,8 +241,9 @@ def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_
     for repository in files:
         os.system(f"mv .repositories/{repository}/* .tmp/{base_name}/.")
     os.chdir(f".tmp/{base_name}")
-    files = os.listdir()
+    files = [int(file) for file in os.listdir()]
     files.sort()
+    files = [str(file) for file in files]
     total_files = len(files)
     if key_after:
         display('+', f"Total Segments = {Back.MAGENTA}{total_files}{Back.RESET}")
