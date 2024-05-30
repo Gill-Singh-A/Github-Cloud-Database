@@ -461,11 +461,11 @@ if __name__ == "__main__":
     if arguments.view:
         if "files" in public_config.keys():
             print(f"{Fore.GREEN}Public Files{Fore.RESET}")
-            print('\n'.join([f"* {Fore.CYAN}{file}{Fore.RESET}" for file in public_config["files"]]))
+            print('\n'.join([f"* {Fore.CYAN}{file}{Fore.RESET} : {Fore.YELLOW}{public_config['files'][file]['file_size']} Bytes{Fore.RESET}" for file in public_config["files"]]))
             print()
         if "files" in private_config.keys():
             print(f"{Fore.GREEN}Public Files{Fore.RESET}")
-            print('\n'.join([f"* {Fore.CYAN}{file}{Fore.RESET}" for file in private_config["files"]]))
+            print('\n'.join([f"* {Fore.CYAN}{file}{Fore.RESET} : {Fore.YELLOW}{private_config['files'][file]['file_size']} Bytes{Fore.RESET}" for file in private_config["files"]]))
             print()
     if arguments.upload and os.path.exists(arguments.upload):
         if os.path.isdir(arguments.upload):
