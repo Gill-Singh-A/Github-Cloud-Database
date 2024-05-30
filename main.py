@@ -146,10 +146,12 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
         pool.join()
         display('+', f"Merging All the Segments to a Single File...")
         os.system(f"cat {' '.join(files)} > '{file_name}'")
+        split_size = os.path.getsize(files[0])
         display('+', f"Removing Segments...")
         os.system(f"rm {' '.join(files)}")
     else:
         salt_before = ''
+        split_size = None
     display(':', f"Compressing the File...")
     zipFile(file_name, zip_key)
     display('+', f"Removing the Previous File")
@@ -216,8 +218,8 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     pool.close()
     pool.join()
     os.chdir(str(cwd))
-    return salt_before, salt_after, repositories, file_size
-def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_before, salt_after):
+    return salt_before, salt_after, repositories, file_size, split_size
+def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_before, salt_after, split_size):
     total_repositories = len(repositories)
     display('+', f"Cloning {total_repositories} Repositories with {thread_count} Threads")
     repository_divisions = [repositories[group*total_repositories//thread_count: (group+1)*(total_repositories)//thread_count] for group in range(thread_count)]
@@ -266,8 +268,8 @@ def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_
     unzipFile(file, zip_key)
     os.system(f"rm '{file}.zip'")
     if key_before:
-        display('+', f"Spliting the File into Files of {mbs}MB each...")
-        os.system(f"split -b {mbs}M '{file}'")
+        display('+', f"Spliting the File into Files of {split_size} Bytes each...")
+        os.system(f"split -b {split_size} '{file}'")
         os.system(f"rm '{file}'")
         files = os.listdir()
         files.sort()
@@ -513,7 +515,7 @@ if __name__ == "__main__":
                 key_after = None
             if zip_password:
                 key_zip = private_zip if private else public_zip
-            salt_before, salt_after, repositories, file_size = uploadFile(auth_token, arguments.upload, private, arguments.user, key_before, key_zip, key_after)
+            salt_before, salt_after, repositories, file_size, split_size = uploadFile(auth_token, arguments.upload, private, arguments.user, key_before, key_zip, key_after)
             if salt_before == False:
                 display('-', f"Error Occurred : {Back.YELLOW}{salt_after}{Back.RESET}")
                 exit(0)
@@ -521,11 +523,11 @@ if __name__ == "__main__":
             if private:
                 if "files" not in private_config:
                     private_config["files"] = {}
-                private_config["files"][file_name] = {"salt_before": salt_before, "salt_after": salt_after, "repositories": repositories, "before_zip": key_before, "zip": key_zip, "after_zip": key_after, "file_size": file_size}
+                private_config["files"][file_name] = {"salt_before": salt_before, "salt_after": salt_after, "repositories": repositories, "before_zip": key_before, "zip": key_zip, "after_zip": key_after, "file_size": file_size, "split_size": split_size}
             else:
                 if "files" not in public_config:
                     public_config["files"] = {}
-                public_config["files"][file_name] = {"salt_before": salt_before, "salt_after": salt_after, "repositories": repositories, "before_zip": key_before, "zip": key_zip, "after_zip": key_after, "file_size": file_size}
+                public_config["files"][file_name] = {"salt_before": salt_before, "salt_after": salt_after, "repositories": repositories, "before_zip": key_before, "zip": key_zip, "after_zip": key_after, "file_size": file_size, "split_size": split_size}
             with open(f"configs/{arguments.user}/public_config", 'wb') as file:
                 pickle.dump(public_config, file)
             key, _ = generate_key(github_password, config_salt)
@@ -550,6 +552,7 @@ if __name__ == "__main__":
             salt_before = public_config["files"][arguments.download]["salt_before"]
             salt_after = public_config["files"][arguments.download]["salt_after"]
             file_size = public_config["files"][arguments.download]["file_size"]
+            split_size = public_config["files"][arguments.download]["split_size"]
         elif "files" in private_config.keys() and arguments.download in private_config["files"].keys():
             private = True
             repositories = private_config["files"][arguments.download]["repositories"]
@@ -559,6 +562,7 @@ if __name__ == "__main__":
             salt_before = private_config["files"][arguments.download]["salt_before"]
             salt_after = private_config["files"][arguments.download]["salt_after"]
             file_size = private_config["files"][arguments.download]["file_size"]
+            split_size = private_config["files"][arguments.download]["split_size"]
         else:
             display('-', f"No File Named {Back.YELLOW}{arguments.download}{Back.RESET} Found")
             exit(0)
@@ -566,7 +570,7 @@ if __name__ == "__main__":
         if free_space < file_size * 2.5:
             display('-', f"Not Enough Space for Downloading the File {Back.MAGENTA}{arguments.download}{Back.RESET}! Size = {Back.YELLOW}{file_size} Bytes{Back.RESET}")
             exit(0)
-        downloadFile(arguments.download, arguments.user, repositories, key_before, zip_key, key_after, salt_before, salt_after)
+        downloadFile(arguments.download, arguments.user, repositories, key_before, zip_key, key_after, salt_before, salt_after, split_size)
     if arguments.delete:
         if "files" in public_config.keys() and arguments.delete in public_config["files"].keys():
             private = False
