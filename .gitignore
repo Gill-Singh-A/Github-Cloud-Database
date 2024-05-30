@@ -2,3 +2,4 @@
 .repositories
 configs
 authentication_tokens.pickle
+__pycache__
