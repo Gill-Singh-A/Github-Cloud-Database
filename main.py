@@ -116,7 +116,7 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     display(':', f"File Size  = {Back.MAGENTA}{file_size} Bytes{Back.RESET}")
     display(':', f"Free Space = {Back.MAGENTA}{free_space} Bytes{Back.RESET}")
     if free_space < file_size * 2.5:
-        return False, "Not Enough Space for Processing the File"
+        return False, "Not Enough Space for Processing the File", '', file_size
     display('+', f"Copying the File Contents...")
     os.chdir(".tmp")
     if key_before != False:
@@ -201,7 +201,7 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     pool.close()
     pool.join()
     os.chdir(str(cwd))
-    return salt_before, salt_after, repositories
+    return salt_before, salt_after, repositories, file_size
 def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_before, salt_after):
     total_repositories = len(repositories)
     display('+', f"Cloning {total_repositories} Repositories with {thread_count} Threads")
@@ -467,16 +467,19 @@ if __name__ == "__main__":
                 key_after = None
             if zip_password:
                 key_zip = private_zip if private else public_zip
-            salt_before, salt_after, repositories = uploadFile(auth_token, arguments.upload, private, arguments.user, key_before, key_zip, key_after)
+            salt_before, salt_after, repositories, file_size = uploadFile(auth_token, arguments.upload, private, arguments.user, key_before, key_zip, key_after)
+            if salt_before == False:
+                display('-', f"Error Occurred : {Back.YELLOW}{salt_after}{Back.RESET}")
+                exit(0)
             file_name = arguments.upload.split('/')[-1]
             if private:
                 if "files" not in private_config:
                     private_config["files"] = {}
-                private_config["files"][file_name] = {"salt_before": salt_before, "salt_after": salt_after, "repositories": repositories, "before_zip": key_before, "zip": key_zip, "after_zip": key_after}
+                private_config["files"][file_name] = {"salt_before": salt_before, "salt_after": salt_after, "repositories": repositories, "before_zip": key_before, "zip": key_zip, "after_zip": key_after, "file_size": file_size}
             else:
                 if "files" not in public_config:
                     public_config["files"] = {}
-                public_config["files"][file_name] = {"salt_before": salt_before, "salt_after": salt_after, "repositories": repositories, "before_zip": key_before, "zip": key_zip, "after_zip": key_after}
+                public_config["files"][file_name] = {"salt_before": salt_before, "salt_after": salt_after, "repositories": repositories, "before_zip": key_before, "zip": key_zip, "after_zip": key_after, "file_size": file_size}
             with open(f"configs/{arguments.user}/public_config", 'wb') as file:
                 pickle.dump(public_config, file)
             key, _ = generate_key(github_password, config_salt)
