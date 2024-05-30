@@ -69,6 +69,9 @@ def cloneRepository(auth_token, user, repository, folder=None, verbose=True):
         folder = f".repositories/{repository}"
     status = os.system(f"git clone https://{auth_token}@github.com/{user}/{repository.replace(' ', '-')}.git '{folder.replace(' ', '-')}' {'' if verbose else '>/dev/null 2>/dev/null'}")
     return status
+def cloneRepositories(auth_token, user, repositories):
+    for repository in repositories:
+        cloneRepository(auth_token, user, repository, f".repositories/{repository}", False)
 def createRepositories(auth_token, user, repositories, private):
     for repository in repositories:
         createRepository(auth_token, repository, private)
@@ -80,13 +83,20 @@ def encryptFiles(key, salt, files):
         encrypted_content = encrypt(content, key, salt)
         with open(small_file, 'wb') as file:
             file.write(encrypted_content)
+def decryptFiles(key, salt, files):
+    for small_file in files:
+        with open(small_file, 'rb') as file:
+            encrypted_content = file.read()
+        content = decrypt(encrypted_content, key, salt)
+        with open(small_file, 'wb') as file:
+            file.write(content)
 def zipFile(file, password=None):
     with zipfile.ZipFile(f"{file}.zip", 'w') as ZipFile:
         ZipFile.write(file)
         if password != None:
             ZipFile.setpassword(password.encode())
 def unzipFile(file, password=None):
-    with zipfile.ZipFile(file, 'r') as ZipFile:
+    with zipfile.ZipFile(f"{file}.zip", 'r') as ZipFile:
         if password:
             ZipFile.setpassword(password.encode())
         ZipFile.extractall(".")
@@ -187,6 +197,71 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     pool.join()
     os.chdir(str(cwd))
     return salt_before, salt_after, repositories
+def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_before, salt_after):
+    total_repositories = len(repositories)
+    display('+', f"Cloning {total_repositories} Repositories with {thread_count} Threads")
+    repository_divisions = [repositories[group*total_repositories//thread_count: (group+1)(total_repositories)//thread_count] for group in range(thread_count)]
+    pool = Pool(thread_count)
+    threads = []
+    for repository_division in repository_divisions:
+        threads.append(pool.apply_async(cloneRepositories, (auth_token, user, repository_division, )))
+    for thread in threads:
+        thread.get()
+    pool.close()
+    pool.join()
+    base_name = repositories[0].split('_')[0]
+    files = [file for file in os.listdir(".repositories") if file.startswith(base_name)]
+    temporary_repository_folder = cwd / ".tmp" / base_name
+    temporary_repository_folder.mkdir(exist_ok=True, parents=True)
+    for file in files:
+        os.system(f"mv .repositories/{file}/* .tmp/{base_name}/.")
+    os.chdir(f".tmp/{base_name}")
+    files = os.listdir()
+    files.sort()
+    total_files = len(files)
+    if key_after:
+        display('+', f"Total Segments = {Back.MAGENTA}{total_files}{Back.RESET}")
+        display('+', f"Decrypting All the Segments using {thread_count} Threads...")
+        key, _ = generate_key(key_after, salt_after)
+        pool = Pool(thread_count)
+        file_divisions = [files[group*total_files//thread_count: (group+1)*total_files//thread_count] for group in range(thread_count)]
+        threads = []
+        for file_division in file_divisions:
+            threads.append(pool.apply_async(decryptFiles, (key, salt_after, file_division)))
+        for thread in threads:
+            thread.get()
+        pool.close()
+        pool.join()
+    display('+', f"Merging All the Segments to a Single File...")
+    os.system(f"cat {' '.join(files)} > '{file}.zip'")
+    display(':', f"Deompressing the File...")
+    unzipFile(file_name, key_zip)
+    os.system(f"rm '{file}.zip'")
+    if key_before:
+        display('+', f"Spliting the File into Files of 50MB each...")
+        os.system(f"split -b 50M '{file_name}'")
+        os.system(f"rm '{file_name}'")
+        files = os.listdir()
+        files.sort()
+        total_files = len(files)
+        display('+', f"Total Segments = {Back.MAGENTA}{total_files}{Back.RESET}")
+        display('+', f"Decrypting All the Segments using {thread_count} Threads...")
+        key, _ = generate_key(key_before, salt_before)
+        pool = Pool(thread_count)
+        file_divisions = [files[group*total_files//thread_count: (group+1)*total_files//thread_count] for group in range(thread_count)]
+        threads = []
+        for file_division in file_divisions:
+            threads.append(pool.apply_async(decryptFiles, (key, salt_before, file_division)))
+        for thread in threads:
+            thread.get()
+        pool.close()
+        pool.join()
+        display('+', f"Merging All the Segments to a Single File...")
+        os.system(f"cat {' '.join(files)} > '{file}'")
+        display('+', f"Removing Segments...")
+        os.system(f"rm {' '.join(files)}")
+    os.chdir(str(cwd))
+    os.system(f"mv .tmp/{base_name}/{file} downloads/.")
 
 def generateRandom(length):
     letters = string.ascii_letters + "0123456789"
@@ -199,6 +274,8 @@ def makeFolders():
     temporary_repository_folder.mkdir(exist_ok=True)
     user_config_folder = cwd / "configs"
     user_config_folder.mkdir(exist_ok=True) 
+    downloads_folder = cwd / "downloads"
+    downloads_folder.mkdir(exist_ok=True)
 
 if __name__ == "__main__":
     makeFolders()
@@ -207,7 +284,8 @@ if __name__ == "__main__":
                               ('-U', "--upload", "upload", "Path to File that you want to upload"),
                               ('-e', "--encryption", "encryption", "Encrypt File (None/Before/After/Both, Default=None)"),
                               ('-p', "--private", "private", "Private File (True/False, Default=True)"),
-                              ('-z', "--zip-password", "zip_password", "Password for Compressed File (True/False, Default=False)"))
+                              ('-z', "--zip-password", "zip_password", "Password for Compressed File (True/False, Default=False)"),
+                              ('-d', "--download", "download", "Download a File"))
     if not arguments.user:
         display('-', f"Please Provide a Username")
         exit(0)
@@ -394,7 +472,7 @@ if __name__ == "__main__":
                 public_config["files"][file_name] = {"salt_before": salt_before, "salt_after": salt_after, "repositories": repositories, "before_zip": key_before, "zip": key_zip, "after_zip": key_after}
             with open(f"configs/{arguments.user}/public_config", 'wb') as file:
                 pickle.dump(public_config, file)
-            key, config_salt = generate_key(github_password)
+            key, _ = generate_key(github_password, config_salt)
             with open(f"configs/{arguments.user}/private_config", 'wb') as file:
                 content = encrypt(pickle.dumps(private_config), key, config_salt)
                 file.write(content)
@@ -402,3 +480,11 @@ if __name__ == "__main__":
             os.system("git add .")
             os.system(f"git commit -m 'Added {'Private' if private else 'Public'} File '")
             os.system(f"git push origin {arguments.branch}")
+    if arguments.download:
+        if arguments.download in public_config["files"].keys():
+            private = False
+        elif arguments.download in private_config["files"].keys():
+            private = True
+        else:
+            display('-', f"No File Named {Back.YELLOW}{arguments.download}{Back.RESET} Found")
+            exit(0)
