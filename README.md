@@ -11,7 +11,6 @@ Modules/Packages used:
 * string
 * random
 * shutil
-* zipfile
 * math
 * getpass
 * pathlib
