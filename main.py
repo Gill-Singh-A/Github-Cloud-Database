@@ -217,8 +217,8 @@ def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_
     files = [file for file in os.listdir(".repositories") if file.startswith(base_name)]
     temporary_repository_folder = cwd / ".tmp" / base_name
     temporary_repository_folder.mkdir(exist_ok=True, parents=True)
-    for file in files:
-        os.system(f"mv .repositories/{file}/* .tmp/{base_name}/.")
+    for repository in files:
+        os.system(f"mv .repositories/{repository}/* .tmp/{base_name}/.")
     os.chdir(f".tmp/{base_name}")
     files = os.listdir()
     files.sort()
@@ -238,13 +238,15 @@ def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_
         pool.join()
     display('+', f"Merging All the Segments to a Single File...")
     os.system(f"cat {' '.join(files)} > '{file}.zip'")
-    display(':', f"Deompressing the File...")
-    unzipFile(file_name, zip_key)
+    display('+', f"Removing Segments...")
+    os.system(f"rm {' '.join(files)}")
+    display(':', f"Decompressing the File...")
+    unzipFile(file, zip_key)
     os.system(f"rm '{file}.zip'")
     if key_before:
         display('+', f"Spliting the File into Files of 50MB each...")
-        os.system(f"split -b 50M '{file_name}'")
-        os.system(f"rm '{file_name}'")
+        os.system(f"split -b 50M '{file}'")
+        os.system(f"rm '{file}'")
         files = os.listdir()
         files.sort()
         total_files = len(files)
