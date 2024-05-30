@@ -293,7 +293,8 @@ if __name__ == "__main__":
                               ('-p', "--private", "private", "Private File (True/False, Default=True)"),
                               ('-z', "--zip-password", "zip_password", "Password for Compressed File (True/False, Default=False)"),
                               ('-d', "--download", "download", "Download a File"),
-                              ('-v', "--view", "view", "View Uploaded Files"))
+                              ('-v', "--view", "view", "View Uploaded Files"),
+                              ('-D', "--delete", "delete", "Delete a File"))
     if not arguments.user:
         display('-', f"Please Provide a Username")
         exit(0)
@@ -503,6 +504,7 @@ if __name__ == "__main__":
     elif arguments.upload:
         display('-', f"File {Back.YELLOW}{arguments.upload}{Back.RESET} not found!")
         exit(0)
+    os.chdir(str(cwd))
     if arguments.download:
         if "files" in public_config.keys() and arguments.download in public_config["files"].keys():
             private = False
@@ -524,3 +526,30 @@ if __name__ == "__main__":
             display('-', f"No File Named {Back.YELLOW}{arguments.download}{Back.RESET} Found")
             exit(0)
         downloadFile(arguments.download, arguments.user, repositories, key_before, zip_key, key_after, salt_before, salt_after)
+    if arguments.delete:
+        if "files" in public_config.keys() and arguments.delete in public_config["files"].keys():
+            private = False
+            display('*', f"Deleting Public File : {Back.MAGENTA}{arguments.delete}{Back.RESET}")
+            for repository in public_config["files"][arguments.delete]["repositories"]:
+                deleteRepository(auth_token, arguments.user, repository)
+            public_config["files"].pop(arguments.delete)
+        elif "files" in private_config.keys() and arguments.delete in private_config["files"].keys():
+            private = True
+            display('*', f"Deleting Private File : {Back.MAGENTA}{arguments.delete}{Back.RESET}")
+            for repository in private_config["files"][arguments.delete]["repositories"]:
+                deleteRepository(auth_token, arguments.user, repository)
+            private_config["files"].pop(arguments.delete)
+        else:
+            display('-', f"No File Named {Back.YELLOW}{arguments.download}{Back.RESET} Found")
+            exit(0)
+        with open(f"configs/{arguments.user}/public_config", 'wb') as file:
+            pickle.dump(public_config, file)
+        key, _ = generate_key(github_password, config_salt)
+        with open(f"configs/{arguments.user}/private_config", 'wb') as file:
+            content = encrypt(pickle.dumps(private_config), key, config_salt)
+            file.write(content)
+        os.chdir(f"configs/{arguments.user}")
+        os.system("git add .")
+        os.system(f"git commit -m 'Deleted {'Private' if private else 'Public'} File '")
+        os.system(f"git push origin {arguments.branch}")
+    os.chdir(str(cwd))
