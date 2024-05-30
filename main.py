@@ -528,6 +528,7 @@ if __name__ == "__main__":
             key_after = public_config["files"][arguments.download]["after_zip"]
             salt_before = public_config["files"][arguments.download]["salt_before"]
             salt_after = public_config["files"][arguments.download]["salt_after"]
+            file_size = public_config["files"][arguments.download]["file_size"]
         elif "files" in private_config.keys() and arguments.download in private_config["files"].keys():
             private = True
             repositories = private_config["files"][arguments.download]["repositories"]
@@ -536,8 +537,13 @@ if __name__ == "__main__":
             key_after = private_config["files"][arguments.download]["after_zip"]
             salt_before = private_config["files"][arguments.download]["salt_before"]
             salt_after = private_config["files"][arguments.download]["salt_after"]
+            file_size = public_config["files"][arguments.download]["file_size"]
         else:
             display('-', f"No File Named {Back.YELLOW}{arguments.download}{Back.RESET} Found")
+            exit(0)
+        free_space = shutil.disk_usage("downloads").free
+        if free_space < file_size * 2.5:
+            display('-', f"Not Enough Space for Downloading the File {Back.MAGENTA}{arguments.download}{Back.RESET}! Size = {Back.YELLOW}{file_size} Bytes{Back.RESET}")
             exit(0)
         downloadFile(arguments.download, arguments.user, repositories, key_before, zip_key, key_after, salt_before, salt_after)
     if arguments.delete:
