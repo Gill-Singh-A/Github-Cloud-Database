@@ -135,11 +135,11 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     zipFile(file_name, zip_key)
     display('+', f"Removing the Previous File")
     os.system(f"rm '{file_name}'")
+    display('+', f"Spliting the File into Files of 50MB each...")
+    os.system(f"split -b 50M '{file_name}.zip'")
+    os.system(f"rm '{file_name}.zip'")
     if key_after != False:
         display(':', f"Encrypting After Compressing")
-        display('+', f"Spliting the File into Files of 50MB each...")
-        os.system(f"split -b 50M '{file_name}.zip'")
-        os.system(f"rm '{file_name}.zip'")
         files = os.listdir()
         files.sort()
         total_files = len(files)
@@ -204,7 +204,10 @@ if __name__ == "__main__":
     makeFolders()
     arguments = get_arguments(('-u', "--user", "user", "Github Username"),
                               ('-b', "--branch", "branch", f"Branch of Github Repositories (Default={default_branch})"),
-                              ('-U', "--upload", "upload", "Path to File that you want to upload"))
+                              ('-U', "--upload", "upload", "Path to File that you want to upload"),
+                              ('-e', "--encryption", "encryption", "Encrypt File (None/Before/After/Both, Default=None)"),
+                              ('-p', "--private", "private", "Private File (True/False, Default=True)"),
+                              ('-z', "--zip-password", "zip_password", "Password for Compressed File (True/False, Default=False)"))
     if not arguments.user:
         display('-', f"Please Provide a Username")
         exit(0)
@@ -340,7 +343,6 @@ if __name__ == "__main__":
         os.system("git add .")
         os.system(f"git commit -m 'Added Configuration Files'")
         os.system(f"git push origin {arguments.branch}")
-        os.chdir(str(cwd))
     else:
         os.chdir(f"configs/{arguments.user}")
         os.system(f"git pull")
@@ -360,4 +362,43 @@ if __name__ == "__main__":
             display('-', f"Directories not Supported Currently!")
             exit(0)
         else:
-            pass
+            private = False if arguments.private == "False" else True
+            zip_password = True if arguments.zip_password == "True" else False 
+            if arguments.encryption:
+                if arguments.encryption.lower() == "before":
+                    key_before = private_before_zip if private else public_before_zip
+                    key_after = None
+                elif arguments.encryption.lower() == "after":
+                    key_before = None
+                    key_after = private_after_zip if private else public_after_zip
+                elif arguments.encryption.lower() == "both":
+                    key_before = private_before_zip if private else public_before_zip
+                    key_after = private_after_zip if private else public_after_zip
+                else:
+                    key_before = None
+                    key_after = None
+            else:
+                key_before = None
+                key_after = None
+            if zip_password:
+                key_zip = private_zip if private else public_zip
+            salt_before, salt_after, repositories = uploadFile(auth_token, arguments.upload, private, arguments.user, key_before, key_zip, key_after)
+            file_name = arguments.upload.split('/')[-1]
+            if private:
+                if "files" not in private_config:
+                    private_config["files"] = {}
+                private_config["files"][file_name] = {"salt_before": salt_before, "salt_after": salt_after, "repositories": repositories, "before_zip": key_before, "zip": key_zip, "after_zip": key_after}
+            else:
+                if "files" not in public_config:
+                    public_config["files"] = {}
+                public_config["files"][file_name] = {"salt_before": salt_before, "salt_after": salt_after, "repositories": repositories, "before_zip": key_before, "zip": key_zip, "after_zip": key_after}
+            with open(f"configs/{arguments.user}/public_config", 'wb') as file:
+                pickle.dump(public_config, file)
+            key, config_salt = generate_key(github_password)
+            with open(f"configs/{arguments.user}/private_config", 'wb') as file:
+                content = encrypt(pickle.dumps(private_config), key, config_salt)
+                file.write(content)
+            os.chdir(f"configs/{arguments.user}")
+            os.system("git add .")
+            os.system(f"git commit -m 'Added {'Private' if private else 'Public'} File '")
+            os.system(f"git push origin {arguments.branch}")
