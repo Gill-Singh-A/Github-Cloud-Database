@@ -109,9 +109,12 @@ def uploadToRepositories(repositores):
         os.chdir(f"../.repositories/{repository_name.replace(' ', '-')}")
         os.system("git add .")
         os.system("git commit -m 'Added File Segments' >/dev/null 2>/dev/null")
-        os.system(f"git push origin {default_branch} >/dev/null 2>/dev/null")
+        status = os.system(f"git push origin {default_branch} >/dev/null 2>/dev/null")
         os.system("..")
         os.system(f"rm -rf {repository_name.replace(' ', '-')}")
+        if status != 0:
+            return False
+    return True
 def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_after):
     file_name = file_path.split('/')[-1]
     file_size = os.path.getsize(file_path)
@@ -200,7 +203,13 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     for repository_division in repository_divisions:
         threads.append(pool.apply_async(uploadToRepositories, (repository_division, )))
     for thread in threads:
-        thread.get()
+        status = thread.get()
+        if status == False:
+            display('-', f"Failed to Upload Data!")
+            display('*', f"Reverting...")
+            for repository in repositories:
+                deleteRepository(auth_token, user, repository)
+            exit(0)
     pool.close()
     pool.join()
     os.chdir(str(cwd))
@@ -215,12 +224,6 @@ def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_
         threads.append(pool.apply_async(cloneRepositories, (auth_token, user, repository_division, )))
     for thread in threads:
         status = thread.get()
-        if status == False:
-            display('-', f"Failed to Upload Data!")
-            display('*', f"Reverting...")
-            for repository in repositories:
-                deleteRepository(auth_token, user, repository)
-            exit(0)
     pool.close()
     pool.join()
     base_name = repositories[0].split('_')[0]
