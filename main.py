@@ -32,7 +32,7 @@ def get_arguments(*args):
 cwd = Path.cwd()
 default_branch = "main"
 githubREPO_API = "https://api.github.com/user/repos"
-mbs = 51
+mbs = 50
 individual_segment_size = mbs * 1000 * 1000
 segements_per_repository = 39
 github_repo_size = individual_segment_size * segements_per_repository
