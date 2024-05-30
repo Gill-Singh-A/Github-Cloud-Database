@@ -61,3 +61,6 @@ pip install -r requirements.txt
         * Associated Repositories
         * Encryption and Zip Passwords (again storing with keeping in the mind the future implementation of sharing files with specific users only, by using custom passwords instead of the passwords available in Publically Available Configuration Files)
         * Salts for AES-256 Symmetric Encryptions
+### Note
+* This Only works for Linux based Operating Systems (as it uses Linux System Commands)
+* Only use a dummy Github Account for this, else everything will get messed up
