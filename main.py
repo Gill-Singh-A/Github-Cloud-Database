@@ -1,11 +1,13 @@
 #! /usr/bin/env python3
 
-import requests, json, os, sys, pickle, base64, string, random
+import requests, json, os, sys, pickle, base64, string, random, shutil, zipfile
+from math import ceil, sqrt
 from getpass import getpass
 from pathlib import Path
 from datetime import date
 from optparse import OptionParser
 from colorama import Fore, Back, Style
+from multiprocessing import cpu_count, Pool, Lock
 from time import strftime, localtime, sleep, time
 
 from aes_256 import encrypt, decrypt, generate_key
@@ -30,6 +32,17 @@ def get_arguments(*args):
 cwd = Path.cwd()
 default_branch = "main"
 githubREPO_API = "https://api.github.com/user/repos"
+individual_segment_size = 50 * 1000 * 1000
+segements_per_repository = 39
+github_repo_size = individual_segment_size * segements_per_repository
+thread_count = cpu_count()
+lock = Lock()
+
+'''
++ .
+/ -
+= _
+'''
 
 def createRepository(auth_token, name, private):
     headers = {
@@ -51,17 +64,137 @@ def deleteRepository(auth_token, user, repository):
     if response.status_code == 204:
         return True
     return response
-def cloneRepository(auth_token, user, repository, folder=None):
+def cloneRepository(auth_token, user, repository, folder=None, verbose=True):
     if folder == None:
         folder = f".repositories/{repository}"
-    status = os.system(f"git clone https://{auth_token}@github.com/{user}/{repository}.git {folder}")
+    status = os.system(f"git clone https://{auth_token}@github.com/{user}/{repository.replace(' ', '-')}.git '{folder.replace(' ', '-')}' {'' if verbose else '>/dev/null 2>/dev/null'}")
     return status
+def createRepositories(auth_token, user, repositories, private):
+    for repository in repositories:
+        createRepository(auth_token, repository, private)
+        cloneRepository(auth_token, user, repository, f"../.repositories/{repository}", False)
+def encryptFiles(key, salt, files):
+    for small_file in files:
+        with open(small_file, 'rb') as file:
+            content = file.read()
+        encrypted_content = encrypt(content, key, salt)
+        with open(small_file, 'wb') as file:
+            file.write(encrypted_content)
+def zipFile(file, password=None):
+    with zipfile.ZipFile(f"{file}.zip", 'w') as ZipFile:
+        ZipFile.write(file)
+        if password != None:
+            ZipFile.setpassword(password.encode())
+def unzipFile(file, password=None):
+    with zipfile.ZipFile(file, 'r') as ZipFile:
+        if password:
+            ZipFile.setpassword(password.encode())
+        ZipFile.extractall(".")
+def uploadToRepositories(repositores):
+    for repository_name in repositores:
+        os.chdir(f"../.repositories/{repository_name.replace(' ', '-')}")
+        os.system("git add .")
+        os.system("git commit -m 'Added File Segments' >/dev/null 2>/dev/null")
+        os.system(f"git push origin {default_branch} >/dev/null 2>/dev/null")
+        os.system("..")
+        os.system(f"rm -rf {repository_name.replace(' ', '-')}")
+def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_after):
+    file_name = file_path.split('/')[-1]
+    file_size = os.path.getsize(file_path)
+    free_space = shutil.disk_usage(file_path).free
+    display(':', f"File Size  = {Back.MAGENTA}{file_size} Bytes{Back.RESET}")
+    display(':', f"Free Space = {Back.MAGENTA}{free_space} Bytes{Back.RESET}")
+    if free_space < file_size * 2.5:
+        return False, "Not Enough Space for Processing the File"
+    display('+', f"Copying the File Contents...")
+    os.chdir(".tmp")
+    if key_before != False:
+        display(':', f"Encrypting before Compressing")
+        display('+', f"Spliting the File into Files of 50MB each...")
+        os.system(f"split -b 50M '{file_path}'")
+        files = os.listdir()
+        files.sort()
+        total_files = len(files)
+        display('+', f"Total Segments = {Back.MAGENTA}{total_files}{Back.RESET}")
+        display('+', f"Encrypting All the Segments using {thread_count} Threads...")
+        key, salt_before = generate_key(key_before)
+        pool = Pool(thread_count)
+        file_divisions = [files[group*total_files//thread_count: (group+1)*total_files//thread_count] for group in range(thread_count)]
+        threads = []
+        for file_division in file_divisions:
+            threads.append(pool.apply_async(encryptFiles, (key, salt_before, file_division)))
+        for thread in threads:
+            thread.get()
+        pool.close()
+        pool.join()
+        display('+', f"Merging All the Segments to a Single File...")
+        os.system(f"cat {' '.join(files)} > '{file_name}'")
+        display('+', f"Removing Segments...")
+        os.system(f"rm {' '.join(files)}")
+    display(':', f"Compressing the File...")
+    zipFile(file_name, zip_key)
+    display('+', f"Removing the Previous File")
+    os.system(f"rm '{file_name}'")
+    if key_after != False:
+        display(':', f"Encrypting After Compressing")
+        display('+', f"Spliting the File into Files of 50MB each...")
+        os.system(f"split -b 50M '{file_name}.zip'")
+        os.system(f"rm '{file_name}.zip'")
+        files = os.listdir()
+        files.sort()
+        total_files = len(files)
+        display('+', f"Total Segments = {Back.MAGENTA}{total_files}{Back.RESET}")
+        display('+', f"Encrypting All the Segments using {thread_count} Threads...")
+        key, salt_after = generate_key(key_before)
+        pool = Pool(thread_count)
+        file_divisions = [files[group*total_files//thread_count: (group+1)*total_files//thread_count] for group in range(thread_count)]
+        threads = []
+        for file_division in file_divisions:
+            threads.append(pool.apply_async(encryptFiles, (key, salt_after, file_division)))
+        for thread in threads:
+            thread.get()
+        pool.close()
+        pool.join()
+    display(':', f"Uploading Segments to Github")
+    files = os.listdir()
+    files.sort()
+    total_files = len(files)
+    files = [[file, index // segements_per_repository] for index, file in enumerate(files)]
+    repository_count = ceil(total_files / segements_per_repository)
+    repositories = [f"{base64.b64encode(file_name.encode()).decode().replace('+', '.').replace('/', '-').replace('=', '_')}_{index}" for index in range(repository_count)]
+    repository_divisions = [repositories[group*repository_count//thread_count: (group+1)*repository_count//thread_count] for group in range(thread_count)]
+    display('+', f"Repositories Required = {Back.MAGENTA}{repository_count}{Back.RESET}")
+    display('+', f"Create Repositories using 16 Threads...")
+    pool = Pool(thread_count)
+    threads = []
+    for repository_division in repository_divisions:
+        threads.append(pool.apply_async(createRepositories, (auth_token, user, repository_division, private)))
+    for thread in threads:
+        thread.get()
+    pool.close()
+    pool.join()
+    display('+', f"Uploading Files to Repositories using {int(sqrt(thread_count))} Threads...")
+    for index, (file, repository_index) in enumerate(files):
+        os.system(f"mv {file} ../.repositories/{base64.b64encode(file_name.encode()).decode().replace('+', '.').replace('/', '-').replace('=', '_')}_{repository_index}/{index}")
+    pool = Pool(int(sqrt(thread_count)))
+    repository_divisions = [repositories[group*repository_count//int(sqrt(thread_count)): (group+1)*repository_count//int(sqrt(thread_count))] for group in range(int(sqrt(thread_count)))]
+    threads = []
+    for repository_division in repository_divisions:
+        threads.append(pool.apply_async(uploadToRepositories, (repository_division, )))
+    for thread in threads:
+        thread.get()
+    pool.close()
+    pool.join()
+    os.chdir(str(cwd))
+    return salt_before, salt_after, repositories
 
 def generateRandom(length):
     letters = string.ascii_letters + "0123456789"
     return ''.join([random.choice(letters) for _ in range(length)])
 
 def makeFolders():
+    temporary_folder = cwd / ".tmp"
+    temporary_folder.mkdir(exist_ok=True)
     temporary_repository_folder = cwd / ".repositories"
     temporary_repository_folder.mkdir(exist_ok=True)
     user_config_folder = cwd / "configs"
@@ -70,13 +203,16 @@ def makeFolders():
 if __name__ == "__main__":
     makeFolders()
     arguments = get_arguments(('-u', "--user", "user", "Github Username"),
-                              ('-b', "--branch", "branch", f"Branch of Github Repositories (Default={default_branch})"))
+                              ('-b', "--branch", "branch", f"Branch of Github Repositories (Default={default_branch})"),
+                              ('-U', "--upload", "upload", "Path to File that you want to upload"))
     if not arguments.user:
         display('-', f"Please Provide a Username")
         exit(0)
     if not arguments.branch:
         display(':', f"Branch Set to {Back.MAGENTA}{default_branch}{Back.RESET}")
         arguments.branch = default_branch
+    else:
+        default_branch = arguments.branch
     try:
         with open("authentication_tokens.pickle", 'rb') as file:
             authentication_tokens = pickle.load(file)
@@ -181,7 +317,7 @@ if __name__ == "__main__":
     config_files.sort()
     if config_files != ["private_config", "public_config"]:
         for file in config_files:
-            os.system(f"rm configs/{arguments.user}/{file}")
+            os.system(f"rm 'configs/{arguments.user}/{file}'")
         public_config = {
             "public_before_zip": public_before_zip,
             "public_zip": public_zip,
@@ -218,3 +354,10 @@ if __name__ == "__main__":
         with open(f"private_config", 'rb') as file:
             content = file.read()
             private_config = pickle.loads(decrypt(content, key, config_salt))
+    os.chdir(str(cwd))
+    if arguments.upload and os.path.exists(arguments.upload):
+        if os.path.isdir(arguments.upload):
+            display('-', f"Directories not Supported Currently!")
+            exit(0)
+        else:
+            pass
