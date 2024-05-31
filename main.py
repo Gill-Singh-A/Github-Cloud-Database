@@ -105,8 +105,9 @@ def unzipFile(file, password=None):
     else:
         os.system(f"unzip '{file}.zip' '{file}'")
 def uploadToRepositories(repositores):
+    os.chdir("../.repositories/")
     for repository_name in repositores:
-        os.chdir(f"../.repositories/{repository_name.replace(' ', '-')}")
+        os.chdir(f"{repository_name.replace(' ', '-')}")
         os.system("git add .")
         os.system("git commit -m 'Added File Segments' >/dev/null 2>/dev/null")
         status = os.system(f"git push origin {default_branch} >/dev/null 2>/dev/null")
@@ -114,6 +115,7 @@ def uploadToRepositories(repositores):
         os.system(f"rm -rf {repository_name.replace(' ', '-')}")
         if status != 0:
             return False
+        os.chdir("..")
     return True
 def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_after):
     file_name = file_path.split('/')[-1]
