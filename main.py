@@ -484,14 +484,20 @@ if __name__ == "__main__":
             private_config = pickle.loads(decrypt(content, key, config_salt))
     os.chdir(str(cwd))
     if arguments.view:
+        public_size, private_size = 0, 0
         if "files" in public_config.keys():
             print(f"{Fore.GREEN}Public Files{Fore.RESET}")
+            public_size += sum([int(public_config['files'][file]['file_size']) for file in public_config["files"]])
             print('\n'.join([f"* {Fore.CYAN}{file}{Fore.RESET} : {Fore.YELLOW}{public_config['files'][file]['file_size']} Bytes{Fore.RESET}" for file in public_config["files"]]))
+            print(f"Total Size of Public Files = {Fore.BLUE}{public_size}{Fore.RESET}")
             print()
         if "files" in private_config.keys():
+            private_size += sum([int(private_config['files'][file]['file_size']) for file in private_config["files"]])
             print(f"{Fore.GREEN}Private Files{Fore.RESET}")
             print('\n'.join([f"* {Fore.CYAN}{file}{Fore.RESET} : {Fore.YELLOW}{private_config['files'][file]['file_size']} Bytes{Fore.RESET}" for file in private_config["files"]]))
+            print(f"Total Size of Private Files = {Fore.BLUE}{private_size}{Fore.RESET}")
             print()
+        print(f"Total Size Files = {Fore.BLUE}{public_size + private_size}{Fore.RESET}")
     if arguments.upload and os.path.exists(arguments.upload):
         if os.path.isdir(arguments.upload):
             display('-', f"Directories not Supported Currently!")
