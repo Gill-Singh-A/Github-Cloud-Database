@@ -293,7 +293,7 @@ def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_
         display('+', f"Removing Segments...")
         os.system(f"rm {' '.join(files)}")
     os.chdir(str(cwd))
-    os.system(f"mv .tmp/{base_name}/{file} downloads/.")
+    os.system(f"mv '.tmp/{base_name}/{file}' downloads/.")
 
 def generateRandom(length):
     letters = string.ascii_letters + "0123456789"
