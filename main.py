@@ -124,7 +124,7 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     display(':', f"File Size  = {Back.MAGENTA}{file_size} Bytes{Back.RESET}")
     display(':', f"Free Space = {Back.MAGENTA}{free_space} Bytes{Back.RESET}")
     if free_space < file_size * 2.5:
-        return False, "Not Enough Space for Processing the File", '', file_size
+        return False, "Not Enough Space for Processing the File", '', file_size, ''
     display('+', f"Copying the File Contents...")
     os.chdir(".tmp")
     if key_before != False:
