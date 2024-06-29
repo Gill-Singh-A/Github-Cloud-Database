@@ -337,7 +337,7 @@ if __name__ == "__main__":
     except:
         display('-', f"Error while Reading Authentication Tokens")
         exit(0)
-    if arguments.update_token and arguments.update_token in authentication_tokens.keys():
+    if arguments.update_token:
         auth_token = input(f"Enter Updated Github API Authentication Token for {arguments.update_token} : ")
         auth_token_password =  getpass(f"Enter the Password for Accessing Token : ")
         salt = authentication_tokens[arguments.user]["salt"]
