@@ -127,7 +127,7 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
         return False, "Not Enough Space for Processing the File", '', file_size, ''
     display('+', f"Copying the File Contents...")
     os.chdir(".tmp")
-    if key_before != False:
+    if key_before:
         display(':', f"Encrypting before Compressing")
         display('+', f"Spliting the File into Files of {mbs}MB each...")
         os.system(f"split -b {mbs}M '{file_path}'")
@@ -161,7 +161,7 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     display('+', f"Spliting the File into Files of {mbs}MB each...")
     os.system(f"split -b {mbs}M '{file_name}.zip'")
     os.system(f"rm '{file_name}.zip'")
-    if key_after != False:
+    if key_after:
         display(':', f"Encrypting After Compressing")
         files = os.listdir()
         files.sort()
