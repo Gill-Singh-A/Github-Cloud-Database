@@ -523,6 +523,8 @@ if __name__ == "__main__":
                 key_after = None
             if zip_password:
                 key_zip = private_zip if private else public_zip
+            else:
+                key_zip = None
             salt_before, salt_after, repositories, file_size, split_size = uploadFile(auth_token, arguments.upload, private, arguments.user, key_before, key_zip, key_after)
             if salt_before == False:
                 display('-', f"Error Occurred : {Back.YELLOW}{salt_after}{Back.RESET}")
