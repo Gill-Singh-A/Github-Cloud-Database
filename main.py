@@ -152,6 +152,7 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
         display('+', f"Removing Segments...")
         os.system(f"rm {' '.join(files)}")
     else:
+        os.system(f"cp '{file_path}' '{file_name}'")
         salt_before = ''
         split_size = None
     display(':', f"Compressing the File...")
