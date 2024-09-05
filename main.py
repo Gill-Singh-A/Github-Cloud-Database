@@ -35,6 +35,7 @@ githubREPO_API = "https://api.github.com/user/repos"
 mbs = 50
 individual_segment_size = mbs * 1000 * 1000
 segements_per_repository = 39
+required_space_times = 3.5
 github_repo_size = individual_segment_size * segements_per_repository
 thread_count = cpu_count()
 lock = Lock()
@@ -123,7 +124,7 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     free_space = shutil.disk_usage(file_path).free
     display(':', f"File Size  = {Back.MAGENTA}{file_size} Bytes{Back.RESET}")
     display(':', f"Free Space = {Back.MAGENTA}{free_space} Bytes{Back.RESET}")
-    if free_space < file_size * 2.5:
+    if free_space < file_size * required_space_times:
         return False, "Not Enough Space for Processing the File", '', file_size, ''
     display('+', f"Copying the File Contents...")
     os.chdir(".tmp")
@@ -578,7 +579,7 @@ if __name__ == "__main__":
             display('-', f"No File Named {Back.YELLOW}{arguments.download}{Back.RESET} Found")
             exit(0)
         free_space = shutil.disk_usage("downloads").free
-        if free_space < file_size * 2.5:
+        if free_space < file_size * required_space_times:
             display('-', f"Not Enough Space for Downloading the File {Back.MAGENTA}{arguments.download}{Back.RESET}! Size = {Back.YELLOW}{file_size} Bytes{Back.RESET}")
             exit(0)
         downloadFile(arguments.download, arguments.user, repositories, key_before, zip_key, key_after, salt_before, salt_after, split_size)
