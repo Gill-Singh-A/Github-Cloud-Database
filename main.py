@@ -37,7 +37,7 @@ individual_segment_size = mbs * 1000 * 1000
 segements_per_repository = 39
 required_space_times = 3.5
 github_repo_size = individual_segment_size * segements_per_repository
-thread_count = cpu_count()
+process_count = cpu_count()
 lock = Lock()
 
 '''
@@ -136,15 +136,15 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
         files.sort()
         total_files = len(files)
         display('+', f"Total Segments = {Back.MAGENTA}{total_files}{Back.RESET}")
-        display('+', f"Encrypting All the Segments using {thread_count} Threads...")
+        display('+', f"Encrypting All the Segments using {process_count} Processes...")
         key, salt_before = generate_key(key_before)
-        pool = Pool(thread_count)
-        file_divisions = [files[group*total_files//thread_count: (group+1)*total_files//thread_count] for group in range(thread_count)]
-        threads = []
+        pool = Pool(process_count)
+        file_divisions = [files[group*total_files//process_count: (group+1)*total_files//process_count] for group in range(process_count)]
+        processes = []
         for file_division in file_divisions:
-            threads.append(pool.apply_async(encryptFiles, (key, salt_before, file_division)))
-        for thread in threads:
-            thread.get()
+            processes.append(pool.apply_async(encryptFiles, (key, salt_before, file_division)))
+        for process in processes:
+            process.get()
         pool.close()
         pool.join()
         display('+', f"Merging All the Segments to a Single File...")
@@ -169,15 +169,15 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
         files.sort()
         total_files = len(files)
         display('+', f"Total Segments = {Back.MAGENTA}{total_files}{Back.RESET}")
-        display('+', f"Encrypting All the Segments using {thread_count} Threads...")
+        display('+', f"Encrypting All the Segments using {process_count} Processes...")
         key, salt_after = generate_key(key_after)
-        pool = Pool(thread_count)
-        file_divisions = [files[group*total_files//thread_count: (group+1)*total_files//thread_count] for group in range(thread_count)]
-        threads = []
+        pool = Pool(process_count)
+        file_divisions = [files[group*total_files//process_count: (group+1)*total_files//process_count] for group in range(process_count)]
+        processes = []
         for file_division in file_divisions:
-            threads.append(pool.apply_async(encryptFiles, (key, salt_after, file_division)))
-        for thread in threads:
-            thread.get()
+            processes.append(pool.apply_async(encryptFiles, (key, salt_after, file_division)))
+        for process in processes:
+            process.get()
         pool.close()
         pool.join()
     else:
@@ -189,28 +189,28 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     files = [[file, index // segements_per_repository] for index, file in enumerate(files)]
     repository_count = ceil(total_files / segements_per_repository)
     repositories = [f"{base64.b64encode(file_name.encode()).decode().replace('+', '.').replace('/', '-').replace('=', '_')}_{index}" for index in range(repository_count)]
-    repository_divisions = [repositories[group*repository_count//thread_count: (group+1)*repository_count//thread_count] for group in range(thread_count)]
+    repository_divisions = [repositories[group*repository_count//process_count: (group+1)*repository_count//process_count] for group in range(process_count)]
     display('+', f"Repositories Required = {Back.MAGENTA}{repository_count}{Back.RESET}")
-    display('+', f"Create Repositories using 16 Threads...")
-    pool = Pool(thread_count)
-    threads = []
+    display('+', f"Create Repositories using 16 Processes...")
+    pool = Pool(process_count)
+    processes = []
     for repository_division in repository_divisions:
-        threads.append(pool.apply_async(createRepositories, (auth_token, user, repository_division, private)))
-    for thread in threads:
-        thread.get()
+        processes.append(pool.apply_async(createRepositories, (auth_token, user, repository_division, private)))
+    for process in processes:
+        process.get()
     pool.close()
     pool.join()
-    display('+', f"Uploading Files to Repositories using {int(sqrt(thread_count))} Threads...")
+    display('+', f"Uploading Files to Repositories using {int(sqrt(process_count))} Processes...")
     for index, (file, repository_index) in enumerate(files):
         os.system(f"mv {file} ../.repositories/{base64.b64encode(file_name.encode()).decode().replace('+', '.').replace('/', '-').replace('=', '_')}_{repository_index}/{index}")
-    pool = Pool(int(sqrt(thread_count)))
-    repository_divisions = [repositories[group*repository_count//int(sqrt(thread_count)): (group+1)*repository_count//int(sqrt(thread_count))] for group in range(int(sqrt(thread_count)))]
-    threads = []
+    pool = Pool(int(sqrt(process_count)))
+    repository_divisions = [repositories[group*repository_count//int(sqrt(process_count)): (group+1)*repository_count//int(sqrt(process_count))] for group in range(int(sqrt(process_count)))]
+    processes = []
     failed = False
     for repository_division in repository_divisions:
-        threads.append(pool.apply_async(uploadToRepositories, (repository_division, )))
-    for thread in threads:
-        status = thread.get()
+        processes.append(pool.apply_async(uploadToRepositories, (repository_division, )))
+    for process in processes:
+        status = process.get()
         if status == False:
             failed = True
     if failed:
@@ -225,15 +225,15 @@ def uploadFile(auth_token, file_path, private, user, key_before, zip_key, key_af
     return salt_before, salt_after, repositories, file_size, split_size
 def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_before, salt_after, split_size):
     total_repositories = len(repositories)
-    display('+', f"Cloning {total_repositories} Repositories with {thread_count} Threads")
-    repository_divisions = [repositories[group*total_repositories//thread_count: (group+1)*(total_repositories)//thread_count] for group in range(thread_count)]
-    pool = Pool(thread_count)
-    threads = []
+    display('+', f"Cloning {total_repositories} Repositories with {process_count} Processes")
+    repository_divisions = [repositories[group*total_repositories//process_count: (group+1)*(total_repositories)//process_count] for group in range(process_count)]
+    pool = Pool(process_count)
+    processes = []
     failed = False
     for repository_division in repository_divisions:
-        threads.append(pool.apply_async(cloneRepositories, (auth_token, user, repository_division, )))
-    for thread in threads:
-        status = thread.get()
+        processes.append(pool.apply_async(cloneRepositories, (auth_token, user, repository_division, )))
+    for process in processes:
+        status = process.get()
         if status == False:
             failed = True
     if failed:
@@ -253,15 +253,15 @@ def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_
     total_files = len(files)
     if key_after:
         display('+', f"Total Segments = {Back.MAGENTA}{total_files}{Back.RESET}")
-        display('+', f"Decrypting All the Segments using {thread_count} Threads...")
+        display('+', f"Decrypting All the Segments using {process_count} Processes...")
         key, _ = generate_key(key_after, salt_after)
-        pool = Pool(thread_count)
-        file_divisions = [files[group*total_files//thread_count: (group+1)*total_files//thread_count] for group in range(thread_count)]
-        threads = []
+        pool = Pool(process_count)
+        file_divisions = [files[group*total_files//process_count: (group+1)*total_files//process_count] for group in range(process_count)]
+        processes = []
         for file_division in file_divisions:
-            threads.append(pool.apply_async(decryptFiles, (key, salt_after, file_division)))
-        for thread in threads:
-            thread.get()
+            processes.append(pool.apply_async(decryptFiles, (key, salt_after, file_division)))
+        for process in processes:
+            process.get()
         pool.close()
         pool.join()
     display('+', f"Merging All the Segments to a Single File...")
@@ -279,15 +279,15 @@ def downloadFile(file, user, repositories, key_before, zip_key, key_after, salt_
         files.sort()
         total_files = len(files)
         display('+', f"Total Segments = {Back.MAGENTA}{total_files}{Back.RESET}")
-        display('+', f"Decrypting All the Segments using {thread_count} Threads...")
+        display('+', f"Decrypting All the Segments using {process_count} Processes...")
         key, _ = generate_key(key_before, salt_before)
-        pool = Pool(thread_count)
-        file_divisions = [files[group*total_files//thread_count: (group+1)*total_files//thread_count] for group in range(thread_count)]
-        threads = []
+        pool = Pool(process_count)
+        file_divisions = [files[group*total_files//process_count: (group+1)*total_files//process_count] for group in range(process_count)]
+        processes = []
         for file_division in file_divisions:
-            threads.append(pool.apply_async(decryptFiles, (key, salt_before, file_division)))
-        for thread in threads:
-            thread.get()
+            processes.append(pool.apply_async(decryptFiles, (key, salt_before, file_division)))
+        for process in processes:
+            process.get()
         pool.close()
         pool.join()
         display('+', f"Merging All the Segments to a Single File...")
@@ -434,7 +434,7 @@ if __name__ == "__main__":
             private_before_zip = decrypt(encrypted_private_before_zip, key, salt).decode()
             private_zip = decrypt(encrypted_private_zip, key, salt).decode()
             private_after_zip = decrypt(encrypted_private_after_zip, key, salt).decode()
-        except Exception as err:
+        except Exception as error:
             display('-', f"Wrong Password!")
             exit(0)
     users_present = os.listdir("configs")
