@@ -1,4 +1,4 @@
 requests
-cryptography
+cryptography==48.0.0
 colorama
 datetime
